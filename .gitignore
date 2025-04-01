@@ -16,7 +16,7 @@ yarn-error.log*
 *.swo
 
 # Archivos de dependencias de producción
-package-lock.json
+
 yarn.lock
 
 # Archivos generados por tests
