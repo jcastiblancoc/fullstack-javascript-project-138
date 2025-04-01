@@ -1,0 +1,25 @@
+{
+  "name": "@hexlet/code",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Page loader utility",
+  "main": "src/page-loader.js",
+  "bin": {
+    "page-loader": "./bin/page-loader.js"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "commander": "^10.0.1",
+    "fs-extra": "^11.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "eslint": "^8.57.1",
+    "globals": "^16.0.0",
+    "jest": "^29.7.0",
+    "nock": "^13.5.6"
+  }
+}
