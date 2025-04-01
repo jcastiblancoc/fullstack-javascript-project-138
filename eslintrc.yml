@@ -1,7 +1,0 @@
-extends: airbnb-base
-rules:
-  no-console: off
-  import/extensions: [error, always]
-env:
-  node: true
-  jest: true

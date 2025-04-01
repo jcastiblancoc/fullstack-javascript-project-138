@@ -1,6 +1,9 @@
-export default {
+module.exports = {
     presets: [
-      '@babel/preset-env'
-    ]
+      ['@babel/preset-env', {
+        targets: { node: 'current' },
+        useBuiltIns: 'usage',
+        corejs: '3.33',
+      }],
+    ],
   };
-  
