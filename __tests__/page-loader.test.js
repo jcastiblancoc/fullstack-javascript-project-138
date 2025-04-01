@@ -1,27 +1,33 @@
-// __tests__/page-loader.test.js
-import nock from 'nock';
-import { downloadPage } from '../src/page-loader.js';
-import { promises as fs } from 'fs';
+import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
+import nock from 'nock';
+import { downloadPage } from '../src/pageLoader.js';
 
-const testUrl = 'https://example.com';
-const testHtml = '<html><body>Test</body></html>';
-const testFileName = 'example-com.html';
+describe('pageLoader', () => {
+    let tempDir;
+    const url = 'https://example.com';
+    const htmlContent = '<html><body>Test</body></html>';
 
-describe('page-loader', () => {
-    it('should download the page and save it to the correct directory', async () => {
-        const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'));
+    beforeEach(async () => {
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'));
+        nock('https://example.com').get('/').reply(200, htmlContent);
+    });
 
-        // Mock HTTP response
-        nock('https://example.com')
-            .get('/')
-            .reply(200, testHtml);
+    test('downloads page content', async () => {
+        const filepath = await downloadPage(url, tempDir);
+        const content = await fs.readFile(filepath, 'utf-8');
 
-        const filePath = await downloadPage(testUrl, outputDir);
+        expect(content).toBe(htmlContent);
+        expect(filepath).toMatch(/example-com\.html$/);
+    });
 
-        expect(filePath).toBe(path.join(outputDir, testFileName));
+    test('uses current directory if output not specified', async () => {
+        const filepath = await downloadPage(url);
+        expect(filepath).toMatch(process.cwd());
+    });
 
-        const savedContent = await fs.readFile(filePath, 'utf-8');
-        expect(savedContent).toBe(testHtml);
+    test('throws error for invalid URL', async () => {
+        await expect(downloadPage('invalid-url')).rejects.toThrow();
     });
 });
