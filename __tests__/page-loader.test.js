@@ -1,33 +1,51 @@
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
 import nock from 'nock';
-import { downloadPage } from '../src/pageLoader.js';
+import fs from 'fs-extra';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import saveHtmlWithImages from '../src/index.js';
 
-describe('pageLoader', () => {
-    let tempDir;
-    const url = 'https://example.com';
-    const htmlContent = '<html><body>Test</body></html>';
+// Definir __dirname manualmente
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'));
-        nock('https://example.com').get('/').reply(200, htmlContent);
-    });
+const mockHtml = `
+<!DOCTYPE html>
+<html>
+  <body>
+    <img src="/assets/professions/nodejs.png" />
+  </body>
+</html>`;
 
-    test('downloads page content', async () => {
-        const filepath = await downloadPage(url, tempDir);
-        const content = await fs.readFile(filepath, 'utf-8');
+const mockImage = Buffer.from([137, 80, 78, 71]);
 
-        expect(content).toBe(htmlContent);
-        expect(filepath).toMatch(/example-com\.html$/);
-    });
+describe('Page Loader', () => {
+  const testDir = path.join(__dirname, '__tests__');
+  const testHtmlPath = path.join(testDir, 'codica-la-cursos.html');
+  const testImagePath = path.join(testDir, 'codica-la-cursos_files', 'assets-professions-nodejs.png');
 
-    test('uses current directory if output not specified', async () => {
-        const filepath = await downloadPage(url);
-        expect(filepath).toMatch(process.cwd());
-    });
+  beforeAll(async () => {
+    await fs.ensureDir(testDir);
+  });
 
-    test('throws error for invalid URL', async () => {
-        await expect(downloadPage('invalid-url')).rejects.toThrow();
-    });
+  afterAll(async () => {
+    await fs.remove(testDir);
+  });
+
+  test('descarga imágenes y modifica el HTML', async () => {
+    nock('https://codica.la')
+      .get('/cursos')
+      .reply(200, mockHtml);
+
+    nock('https://codica.la')
+      .get('/assets/professions/nodejs.png')
+      .reply(200, mockImage);
+
+    await saveHtmlWithImages('https://codica.la/cursos', testHtmlPath);
+
+    const savedHtml = await fs.readFile(testHtmlPath, 'utf-8');
+    const savedImage = await fs.readFile(testImagePath);
+
+    expect(savedHtml).toContain('codica-la-cursos_files/assets-professions-nodejs.png');
+    expect(savedImage).toEqual(mockImage);
+  });
 });

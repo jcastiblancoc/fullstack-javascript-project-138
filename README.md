@@ -11,3 +11,7 @@
 ### Asciinema Paso 1
 
 [![asciicast](https://asciinema.org/a/0mUMjKq3wY70qvToGyXLZLVNc.svg)](https://asciinema.org/a/0mUMjKq3wY70qvToGyXLZLVNc)
+
+### Asciinema Paso 2
+
+[![asciicast](https://asciinema.org/a/2xPzfgJbdlJMsqsPLDOuah7vM.svg)](https://asciinema.org/a/2xPzfgJbdlJMsqsPLDOuah7vM)
