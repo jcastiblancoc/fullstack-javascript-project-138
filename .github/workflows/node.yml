@@ -18,20 +18,15 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
-
-      # 🔹 Ejecutar la descarga antes de las pruebas
       - name: Ejecutar page-loader
         run: node src/page-loader.js https://codica.la/cursos --output test-output
 
-      # 🔹 Verificar que los archivos se generaron correctamente
       - name: Verificar archivos generados
         run: ls -R test-output
 
-      # 🔹 Ejecutar pruebas sin cobertura primero
       - name: Ejecutar pruebas
         run: npm test
 
-      # 🔹 Ejecutar pruebas con cobertura solo si las anteriores pasan
       - name: Ejecutar pruebas con cobertura
         run: npm test -- --coverage
         if: success()
@@ -60,4 +55,3 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
-      - run: npm run build # Solo si tienes un script de build
