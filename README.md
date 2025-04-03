@@ -1,7 +1,9 @@
 ### Hexlet tests and linter status:
+
 [![Actions Status](https://github.com/jcastiblancoc/fullstack-javascript-project-138/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/jcastiblancoc/fullstack-javascript-project-138/actions)
 
 ### Maintainability CodeClimate
+
 [![Maintainability](https://api.codeclimate.com/v1/badges/18d2b2d7ffb685a596a1/maintainability)](https://codeclimate.com/github/jcastiblancoc/fullstack-javascript-project-138/maintainability)
 
 ### Test Coverage CodeClimate
@@ -19,4 +21,3 @@
 ### Asciinema Paso 4
 
 [![asciicast](https://asciinema.org/a/amDpp2mPGaSg71IJyKjzDD7l8.svg)](https://asciinema.org/a/amDpp2mPGaSg71IJyKjzDD7l8)
-

@@ -1,21 +1,18 @@
 #!/usr/bin/env node
 
-import { pageLoader } from '../src/page-loader.js';
-import { Command } from 'commander';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { pageLoader } from "../src/page-loader.js";
 
-const program = new Command();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const [, , url, outputDir] = process.argv;
 
-program
-    .version('1.0.0')
-    .arguments('<url>')
-    .option('-o, --output <dir>', 'output directory', path.join(__dirname, '../descargas'))
-    .action((url, options) => {
-        pageLoader(url, options.output)
-            .then(() => console.log('Página descargada con éxito'))
-            .catch((err) => console.error('Error:', err.message));
-    });
+if (!url || !outputDir) {
+  console.error(
+    "❌ Uso incorrecto. Debes proporcionar una URL y un directorio de salida.",
+  );
+  console.error("Ejemplo: page-loader https://ejemplo.com ./output");
+  process.exit(1);
+}
 
-program.parse(process.argv);
+pageLoader(url, outputDir).catch((error) => {
+  console.error(`❌ Error: ${error.message}`);
+  process.exit(1);
+});

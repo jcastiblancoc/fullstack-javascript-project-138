@@ -1,4 +1,3 @@
 export default {
-    transform: {}, // Desactiva transformaciones innecesarias
-  };
-  
+  transform: {}, // Desactiva transformaciones innecesarias
+};
