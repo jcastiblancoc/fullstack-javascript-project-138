@@ -7,41 +7,57 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20] # Puedes agregar más versiones si lo deseas
+        node-version: [20]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-    - run: npm ci
-    - run: npm test -- --coverage # Ejecutar pruebas con cobertura
+      - run: npm ci
+
+      # 🔹 Ejecutar la descarga antes de las pruebas
+      - name: Ejecutar page-loader
+        run: node src/page-loader.js https://codica.la/cursos --output test-output
+
+      # 🔹 Verificar que los archivos se generaron correctamente
+      - name: Verificar archivos generados
+        run: ls -R test-output
+
+      # 🔹 Ejecutar pruebas sin cobertura primero
+      - name: Ejecutar pruebas
+        run: npm test
+
+      # 🔹 Ejecutar pruebas con cobertura solo si las anteriores pasan
+      - name: Ejecutar pruebas con cobertura
+        run: npm test -- --coverage
+        if: success()
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-    - run: npm ci
-    - run: npm run lint -- --format stylish # Formato detallado
+      - run: npm ci
+      - run: npm run lint -- --format stylish
 
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-    - run: npm ci
-    - run: npm run build # Si tienes un script de build en package.json
+      - run: npm ci
+      - run: npm run build # Solo si tienes un script de build
