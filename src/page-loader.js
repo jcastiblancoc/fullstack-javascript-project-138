@@ -9,7 +9,6 @@ import Listr from "listr";
 
 // Configuración del logger
 const log = debug("page-loader");
-const errorLog = debug("page-loader:error");
 
 log("🚀 Iniciando ejecución de page-loader");
 
