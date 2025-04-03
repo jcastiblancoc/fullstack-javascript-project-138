@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 
+import { pageLoader } from '../src/page-loader.js';
 import { Command } from 'commander';
-import saveHtmlWithImages from '../src/index.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const program = new Command();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 program
-    .name('page-loader')
-    .description('Descarga una página web con sus imágenes.')
     .version('1.0.0')
-    .argument('<url>', 'URL de la página a descargar')
-    .option('-o, --output <path>', 'Directorio de salida', process.cwd())
+    .arguments('<url>')
+    .option('-o, --output <dir>', 'output directory', path.join(__dirname, '../descargas'))
     .action((url, options) => {
-        const outputPath = `${options.output}/page.html`;
-        saveHtmlWithImages(url, outputPath)
-            .then(() => console.log(`Página guardada en: ${outputPath}`))
-            .catch(err => console.error(`Error: ${err.message}`));
+        pageLoader(url, options.output)
+            .then(() => console.log('Página descargada con éxito'))
+            .catch((err) => console.error('Error:', err.message));
     });
 
-program.parse();
+program.parse(process.argv);

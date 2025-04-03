@@ -1,13 +1,15 @@
-import fs from 'fs-extra';
+import fs from 'fs/promises';
 import path from 'path';
 import axios from 'axios';
+import { URL } from 'url';
 
-export const downloadFile = async (url, outputPath) => {
-  try {
-    const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-    await fs.outputFile(outputPath, data);
-    console.log(`Descargado: ${url} -> ${outputPath}`);
-  } catch (error) {
-    console.error(`Error al descargar ${url}: ${error.message}`);
-  }
-};
+export async function downloadResource(resourceUrl, resourcesDir) {
+    const urlObj = new URL(resourceUrl);
+    const fileName = `${urlObj.hostname}${urlObj.pathname.replace(/\W/g, '-')}`;
+    const filePath = path.join(resourcesDir, fileName);
+
+    const response = await axios.get(resourceUrl, { responseType: 'arraybuffer' });
+    await fs.writeFile(filePath, response.data);
+
+    return { originalUrl: resourceUrl, localPath: filePath };
+}

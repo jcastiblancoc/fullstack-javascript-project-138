@@ -1,33 +1,36 @@
-import * as cheerio from 'cheerio';
-import path from 'path';
+import { JSDOM } from 'jsdom';
 import { URL } from 'url';
 
-export const processHtml = (html, baseUrl, outputDir) => {
-  const $ = cheerio.load(html);
-  const resources = [];
+export function extractLocalResources(html, baseUrl) {
+    const dom = new JSDOM(html);
+    const document = dom.window.document;
+    const base = new URL(baseUrl);
+    const resources = [];
 
-  const processTag = (selector, attr) => {
-    $(selector).each((_, element) => {
-      const src = $(element).attr(attr);
-      if (!src) return;
+    document.querySelectorAll('link[rel="stylesheet"], script[src], img[src]').forEach((element) => {
+        const attr = element.tagName === 'LINK' ? 'href' : 'src';
+        const resourceUrl = element.getAttribute(attr);
 
-      const resourceUrl = new URL(src, baseUrl);
-      const isLocal = resourceUrl.hostname === new URL(baseUrl).hostname;
-
-      if (isLocal) {
-        const fileName = resourceUrl.pathname.replace(/\//g, '-').replace(/^-/, '');
-        const filePath = path.join(outputDir, fileName);
-
-        resources.push({ url: resourceUrl.href, filePath });
-
-        $(element).attr(attr, `${path.basename(outputDir)}/${fileName}`);
-      }
+        if (resourceUrl && resourceUrl.startsWith('/') || resourceUrl.startsWith(base.origin)) {
+            const absoluteUrl = new URL(resourceUrl, base).href;
+            resources.push(absoluteUrl);
+        }
     });
-  };
 
-  processTag('link[rel="stylesheet"]', 'href');
-  processTag('script', 'src');
-  processTag('img', 'src');
+    return resources;
+}
 
-  return { modifiedHtml: $.html(), resources };
-};
+export function updateHtmlLinks(html, resourcesMap) {
+    const dom = new JSDOM(html);
+    const document = dom.window.document;
+
+    document.querySelectorAll('link[rel="stylesheet"], script[src], img[src]').forEach((element) => {
+        const attr = element.tagName === 'LINK' ? 'href' : 'src';
+        const resourceUrl = element.getAttribute(attr);
+        if (resourcesMap[resourceUrl]) {
+            element.setAttribute(attr, resourcesMap[resourceUrl]);
+        }
+    });
+
+    return dom.serialize();
+}
