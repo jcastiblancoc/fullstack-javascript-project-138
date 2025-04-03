@@ -6,26 +6,48 @@ import { extractLocalResources, updateHtmlLinks } from './htmlProcessor.js';
 import { downloadResource } from './downloader.js';
 
 export async function pageLoader(url, outputDir) {
-  const urlObj = new URL(url);
-  const pageName = `${urlObj.hostname}${urlObj.pathname.replace(/\W/g, '-')}`;
-  const resourcesDir = path.join(outputDir, `${pageName}_files`);
+  try {
+    const urlObj = new URL(url);
+    const pageName = `${urlObj.hostname}${urlObj.pathname.replace(/\W/g, '-')}`.replace(/-$/, ''); // Evita guiones finales
+    const resourcesDir = path.join(outputDir, `${pageName}_files`);
+    const htmlFilePath = path.join(outputDir, `${pageName}.html`);
 
-  await fs.mkdir(outputDir, { recursive: true });
-  await fs.mkdir(resourcesDir, { recursive: true });
+    // Crear directorios necesarios
+    await fs.mkdir(outputDir, { recursive: true });
+    await fs.mkdir(resourcesDir, { recursive: true });
 
-  const response = await axios.get(url);
-  const html = response.data;
-  const htmlFilePath = path.join(outputDir, `${pageName}.html`);
+    console.log(`📥 Descargando página: ${url}`);
+    const { data: html } = await axios.get(url);
 
-  const resources = extractLocalResources(html, url);
-  const downloads = await Promise.all(
-    resources.map((resourceUrl) => downloadResource(resourceUrl, resourcesDir))
-  );
+    // Extraer y descargar recursos locales
+    const resources = extractLocalResources(html, url);
+    console.log(`🔍 Recursos encontrados: ${resources.length}`);
 
-  const resourcesMap = Object.fromEntries(
-    downloads.map(({ originalUrl, localPath }) => [originalUrl, path.relative(outputDir, localPath)])
-  );
-  const updatedHtml = updateHtmlLinks(html, resourcesMap);
+    const downloads = await Promise.all(
+      resources.map((resourceUrl) =>
+        downloadResource(resourceUrl, resourcesDir).catch((err) => {
+          console.error(`❌ Error descargando ${resourceUrl}: ${err.message}`);
+          return null;
+        })
+      )
+    );
 
-  await fs.writeFile(htmlFilePath, updatedHtml);
+    // Mapear los recursos descargados para actualizar el HTML
+    const resourcesMap = Object.fromEntries(
+      downloads
+        .filter(Boolean) // Excluir descargas fallidas
+        .map(({ originalUrl, localPath }) => [originalUrl, path.relative(outputDir, localPath)])
+    );
+
+    // Actualizar los enlaces en el HTML
+    const updatedHtml = updateHtmlLinks(html, resourcesMap);
+
+    await fs.writeFile(htmlFilePath, updatedHtml);
+    console.log(`✅ Página guardada en: ${htmlFilePath}`);
+
+    return htmlFilePath;
+  } catch (error) {
+    console.error(`❌ Error en pageLoader: ${error.message}`);
+    throw error;
+  }
 }

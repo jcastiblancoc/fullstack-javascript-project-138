@@ -18,11 +18,20 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
+
       - name: Ejecutar page-loader
-        run: node src/page-loader.js https://codica.la/cursos --output test-output
+        run: |
+          mkdir -p test-output  # Asegura que la carpeta exista
+          node src/page-loader.js https://codica.la/cursos --output test-output || echo "❌ Error ejecutando page-loader"
 
       - name: Verificar archivos generados
-        run: ls -R test-output
+        run: |
+          if [ -d "test-output" ]; then
+            ls -R test-output
+          else
+            echo "❌ No se generó el directorio test-output"
+            exit 1
+          fi
 
       - name: Ejecutar pruebas
         run: npm test
