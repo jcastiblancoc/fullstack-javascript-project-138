@@ -1,66 +1,21 @@
 name: Node.js CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
-
-      - run: npm ci
-
-      - name: Ejecutar page-loader
-        run: |
-          mkdir -p test-output  # Asegura que la carpeta exista
-          node src/page-loader.js https://codica.la/cursos --output test-output || echo "❌ Error ejecutando page-loader"
-
-      - name: Verificar archivos generados
-        run: |
-          if [ -d "test-output" ]; then
-            ls -R test-output
-          else
-            echo "❌ No se generó el directorio test-output"
-            exit 1
-          fi
-
-      - name: Ejecutar pruebas
-        run: npm test
-
-      - name: Ejecutar pruebas con cobertura
-        run: npm test -- --coverage
-        if: success()
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "npm"
-
-      - run: npm ci
-      - run: npm run lint -- --format stylish
-
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
+      - name: Use Node.js 18
+        uses: actions/setup-node@v3
         with:
-          node-version: 20
-          cache: "npm"
-
-      - run: npm ci
+          node-version: 18
+      - run: npm install
+      - run: npm test

@@ -1,3 +1,4 @@
 export default {
-  transform: {}, // Desactiva transformaciones innecesarias
+  testEnvironment: 'node',
+  transform: {}
 };

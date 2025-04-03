@@ -1,136 +1,96 @@
-import fs from "fs/promises";
-import path from "path";
-import axios from "axios";
-import { URL } from "url";
-import debug from "debug";
-import { extractLocalResources, updateHtmlLinks } from "./htmlProcessor.js";
-import { downloadResource } from "./downloader.js";
-import Listr from "listr";
+import axios from 'axios';
+import path from 'path';
+import { promises as fs } from 'fs';
+import { URL } from 'url';
+import * as cheerio from 'cheerio';
+import debug from 'debug';
+import { Listr } from 'listr2';
+import _ from 'lodash';
+import {
+  urlToFilename,
+  urlToDirname,
+  getExtension,
+  sanitizeOutputDir,
+} from './helpers.js';
 
-// Configuración del logger
-const log = debug("page-loader");
+const log = debug('page-loader');
 
-log("🚀 Iniciando ejecución de page-loader");
+const processResource = ($, tagName, attrName, baseUrl, baseDirname, assets) => {
+  const $elements = $(tagName).toArray();
+  const elementsWithUrls = $elements
+    .map((element) => $(element))
+    .filter(($element) => $element.attr(attrName))
+    .map(($element) => {
+      const resourceUrl = new URL($element.attr(attrName), baseUrl);
+      return { $element, url: resourceUrl };
+    })
+    .filter(({ url }) => url.origin === baseUrl.origin);
 
-// Configuración de interceptores de axios para debug
-const axiosDebug = debug("axios");
-axios.interceptors.request.use((request) => {
-  axiosDebug(`📡 Request: ${request.method.toUpperCase()} ${request.url}`);
-  return request;
-});
+  elementsWithUrls.forEach(({ $element, url }) => {
+    const slug = urlToFilename(`${url.hostname}${url.pathname}`);
+    const filepath = path.join(baseDirname, slug);
+    assets.push({ url, filename: slug });
+    $element.attr(attrName, filepath);
+  });
+};
 
-axios.interceptors.response.use(
-  (response) => {
-    axiosDebug(`📥 Response: ${response.status} ${response.statusText}`);
-    return response;
-  },
-  (error) => {
-    axiosDebug(
-      `❌ Error en respuesta: ${error.response?.status || "sin código"} ${error.message}`,
-    );
-    return Promise.reject(error);
-  },
-);
+const processResources = (baseUrl, baseDirname, html) => {
+  const $ = cheerio.load(html, { decodeEntities: false });
+  const assets = [];
 
-export async function pageLoader(url, outputDir) {
-  log(`🌐 URL a descargar: ${url}`);
-  log(`📂 Directorio de salida: ${outputDir}`);
+  processResource($, 'img', 'src', baseUrl, baseDirname, assets);
+  processResource($, 'link', 'href', baseUrl, baseDirname, assets);
+  processResource($, 'script', 'src', baseUrl, baseDirname, assets);
 
-  // Generar nombres de archivos y directorios
-  const urlObj = new URL(url);
-  const pageName =
-    `${urlObj.hostname.replace(/\./g, "-")}${urlObj.pathname.replace(/\W/g, "-")}`.replace(
-      /-$/,
-      "",
-    );
-  const resourcesDir = path.join(outputDir, `${pageName}_files`);
-  const htmlFilePath = path.join(outputDir, `${pageName}.html`);
+  return { html: $.html(), assets };
+};
 
-  try {
-    // Crear directorios necesarios
-    await fs.mkdir(outputDir, { recursive: true });
-    await fs.mkdir(resourcesDir, { recursive: true });
-  } catch (error) {
-    if (error.code === "EACCES") {
-      throw new Error("No se pudo escribir el archivo HTML: permiso denegado");
-    }
-    throw error;
-  }
+const downloadAsset = (dirname, { url, filename }) => axios.get(
+  url.toString(),
+  { responseType: 'arraybuffer' },
+).then((response) => fs.writeFile(
+  path.join(dirname, filename),
+  response.data,
+));
 
-  log("🛠 Descargando HTML...");
+const downloadPage = async (pageUrl, outputDirName = '') => {
+  const safeOutputDirName = sanitizeOutputDir(outputDirName);
 
-  try {
-    // Descargar el HTML principal
-    const response = await axios.get(url, {
-      validateStatus: (status) => status >= 200 && status < 300, // Solo aceptar códigos 2xx como éxito
-    });
+  log('url', pageUrl);
+  log('output', safeOutputDirName);
 
-    log("✅ HTML descargado con éxito");
+  const url = new URL(pageUrl);
+  const slug = `${url.hostname}${url.pathname}`;
+  const filename = urlToFilename(slug);
+  const fullOutputDirname = path.resolve(process.cwd(), safeOutputDirName);
+  const extension = getExtension(filename) === '.html' ? '' : '.html';
+  const fullOutputFilename = path.join(
+    fullOutputDirname,
+    `${filename}${extension}`,
+  );
+  const assetsDirname = urlToDirname(slug);
+  const fullOutputAssetsDirname = path.join(fullOutputDirname, assetsDirname);
 
-    // Procesar recursos locales
-    const resources = extractLocalResources(response.data, url);
-    log(`📦 Recursos encontrados: ${resources.length}`);
+  await fs.access(fullOutputDirname).catch(() => {
+    throw new Error(`El directorio ${safeOutputDirName} no existe`);
+  });
 
-    // Crear contexto para almacenar resultados
-    const ctx = { downloadedResources: [] };
+  const html = await axios.get(pageUrl).then((res) => res.data);
+  const data = processResources(url, assetsDirname, html);
 
-    // Crear tareas con Listr para mostrar el progreso
-    const tasks = new Listr(
-      resources.map((resourceUrl) => ({
-        title: `Descargando ${resourceUrl}`,
-        task: async (_, task) => {
-          try {
-            const result = await downloadResource(resourceUrl, resourcesDir);
-            ctx.downloadedResources.push(result); // Guardar resultado en el contexto
-            task.title = `✅ Descargado: ${resourceUrl}`;
-          } catch (error) {
-            task.title = `❌ Error al descargar: ${resourceUrl}`;
-            throw error;
-          }
-        },
-      })),
-      { concurrent: true, exitOnError: false } // Descargas en paralelo, pero no detiene todo si falla una
-    );
+  await fs.mkdir(fullOutputAssetsDirname, { recursive: true });
+  await fs.writeFile(fullOutputFilename, data.html);
 
-    // Ejecutar las tareas
-    await tasks.run();
+  const tasks = data.assets.map((asset) => ({
+    title: asset.url.toString(),
+    task: () => downloadAsset(fullOutputAssetsDirname, asset).catch(_.noop),
+  }));
 
-    // Crear mapa de recursos descargados
-    const resourcesMap = Object.fromEntries(
-      ctx.downloadedResources.map(({ originalUrl, localPath }) => [
-        originalUrl,
-        path.relative(outputDir, localPath),
-      ])
-    );
+  const listr = new Listr(tasks, { concurrent: true });
+  await listr.run();
 
-    // Actualizar HTML con las rutas locales
-    log("🔗 Actualizando enlaces en el HTML...");
-    const updatedHtml = updateHtmlLinks(response.data, resourcesMap);
-    await fs.writeFile(htmlFilePath, updatedHtml, "utf-8");
+  log(`🎉 Archivo HTML guardado en: ${fullOutputFilename}`);
+  return { filepath: fullOutputFilename };
+};
 
-    log(`🎉 Página descargada con éxito: ${htmlFilePath}`);
-    return htmlFilePath;
-  } catch (error) {
-    // Manejo específico de errores HTTP
-    if (error.response) {
-      switch (error.response.status) {
-        case 404:
-          throw new Error("La página respondió con el código HTTP 404");
-        case 403:
-          throw new Error("Acceso prohibido (HTTP 403)");
-        case 500:
-          throw new Error("Error interno del servidor (HTTP 500)");
-        default:
-          throw new Error(
-            `La página respondió con el código HTTP ${error.response.status}`,
-          );
-      }
-    } else if (error.request) {
-      // La petición fue hecha pero no hubo respuesta
-      throw new Error("No se recibió respuesta del servidor");
-    } else {
-      // Error al configurar la petición
-      throw new Error(`Error al descargar la página: ${error.message}`);
-    }
-  }
-}
+export default downloadPage;

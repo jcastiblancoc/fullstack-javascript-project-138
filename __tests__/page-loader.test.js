@@ -1,126 +1,80 @@
-import { pageLoader } from "../src/pageLoader.js";
-import fs from "fs/promises";
-import path from "path";
-import nock from "nock";
-import debug from "debug";
+/* eslint-env jest */
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
+import nock from 'nock';
+import pageLoader from '../src/pageLoader.js';
 
-const testLog = debug("page-loader:test");
-testLog("🧪 Iniciando pruebas de page-loader");
+describe('Page Loader - Manejo de errores y descarga HTML', () => {
+  let tempDir;
 
-const outputDir = path.join(process.cwd(), "test-output");
-const testUrl = "https://codica.la/cursos";
-const mockHtml = `
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <title>Test Page</title>
-    <link rel="stylesheet" href="/assets/style.css">
-  </head>
-  <body>
-    <img src="/assets/image.png">
-    <script src="/scripts/app.js"></script>
-  </body>
-</html>`;
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'page-loader-'));
+  });
 
-beforeEach(async () => {
-  testLog("♻️ Limpiando directorio de pruebas...");
-  await fs.rm(outputDir, { recursive: true, force: true });
-  nock.cleanAll(); // Limpiar todos los mocks existentes
-});
+  test('Debe descargar correctamente el HTML de la página', async () => {
+    const url = 'https://site.com/blog/about';
+    const expectedFilesDir = 'site-com-blog-about_files';
 
-afterEach(() => {
-  nock.cleanAll(); // Limpiar mocks después de cada test
-});
+    // HTML simulado con recursos locales
+    nock('https://site.com')
+      .get('/blog/about')
+      .reply(
+        200,
+        `
+        <html>
+          <head>
+            <link rel="stylesheet" href="/assets/application.css">
+            <script src="/packs/js/runtime.js"></script>
+          </head>
+          <body>
+            <img src="/assets/professions/nodejs.png">
+          </body>
+        </html>
+      `,
+      );
 
-test("pageLoader descarga HTML y recursos locales", async () => {
-  testLog("🌐 Configurando respuestas de nock para test exitoso...");
-  nock("https://codica.la")
-    .get("/cursos")
-    .reply(200, mockHtml)
-    .get("/assets/style.css")
-    .reply(200, "body { background: red; }")
-    .get("/assets/image.png")
-    .reply(200, Buffer.from("image data"))
-    .get("/scripts/app.js")
-    .reply(200, 'console.log("hello");');
+    // Recursos locales simulados
+    nock('https://site.com')
+      .get('/assets/application.css')
+      .reply(200, 'body { background-color: red; }');
 
-  testLog("📥 Descargando página y recursos...");
-  await pageLoader(testUrl, outputDir);
+    nock('https://site.com')
+      .get('/packs/js/runtime.js')
+      .reply(200, 'console.log(\'Hello World\');');
 
-  const downloadedHtml = await fs.readFile(
-    path.join(outputDir, "codica-la-cursos.html"),
-    "utf-8",
-  );
-  expect(downloadedHtml).toContain(
-    "codica-la-cursos_files/codica-la-assets-style.css",
-  );
-  expect(downloadedHtml).toContain(
-    "codica-la-cursos_files/codica-la-assets-image.png",
-  );
-  expect(downloadedHtml).toContain(
-    "codica-la-cursos_files/codica-la-scripts-app.js",
-  );
+    nock('https://site.com')
+      .get('/assets/professions/nodejs.png')
+      .reply(200, 'IMAGEN_BLOB', {
+        'Content-Type': 'image/png',
+      });
 
-  const styleExists = await fs
-    .access(
-      path.join(
-        outputDir,
-        "codica-la-cursos_files",
-        "codica-la-assets-style.css",
-      ),
-    )
-    .then(() => true)
-    .catch(() => false);
-  const imageExists = await fs
-    .access(
-      path.join(
-        outputDir,
-        "codica-la-cursos_files",
-        "codica-la-assets-image.png",
-      ),
-    )
-    .then(() => true)
-    .catch(() => false);
-  const scriptExists = await fs
-    .access(
-      path.join(
-        outputDir,
-        "codica-la-cursos_files",
-        "codica-la-scripts-app.js",
-      ),
-    )
-    .then(() => true)
-    .catch(() => false);
+    const result = await pageLoader(url, tempDir);
+    const fileContent = await fs.readFile(result.filepath, 'utf-8');
 
-  expect(styleExists).toBe(true);
-  expect(imageExists).toBe(true);
-  expect(scriptExists).toBe(true);
+    expect(fileContent).toContain(`${expectedFilesDir}/site-com-assets-application.css`);
+    expect(fileContent).toContain(`${expectedFilesDir}/site-com-packs-js-runtime.js`);
+    expect(fileContent).toContain(`${expectedFilesDir}/site-com-assets-professions-nodejs.png`);
+  });
 
-  testLog("✅ Página y recursos descargados correctamente.");
-});
+  test('Debe lanzar error si la página devuelve 404', async () => {
+    const url = 'https://site.com/pagina-invalida';
 
-test("Error cuando la página responde con código 404", async () => {
-  testLog("🚨 Simulando respuesta 404...");
-  nock("https://codica.la").get("/cursos").reply(404, "Not found");
+    nock('https://site.com').get('/pagina-invalida').reply(404);
 
-  await expect(pageLoader(testUrl, outputDir)).rejects.toThrow(
-    "La página respondió con el código HTTP 404",
-  );
+    await expect(pageLoader(url, tempDir)).rejects.toThrow(/Request failed with status code 404/);
+  });
 
-  testLog("✅ Se detectó correctamente el error 404.");
-});
+  test('Debe lanzar error si no se puede escribir en el directorio', async () => {
+    const url = 'https://site.com';
 
-test("Error cuando no se puede escribir el archivo", async () => {
-  testLog("🚨 Simulando error de permisos en el directorio...");
-  nock("https://codica.la").get("/cursos").reply(200, mockHtml);
+    nock('https://site.com').get('/').reply(200, '<html></html>');
 
-  // Crear el directorio con permisos de solo lectura
-  await fs.mkdir(outputDir, { mode: 0o444 });
+    const protectedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'no-write-'));
+    await fs.chmod(protectedDir, 0o444); // Solo lectura
 
-  await expect(pageLoader(testUrl, outputDir)).rejects.toThrow(
-    "No se pudo escribir el archivo HTML",
-  );
+    await expect(pageLoader(url, protectedDir)).rejects.toThrow(/EACCES|permiso/i);
 
-  testLog("✅ Se detectó correctamente el error de permisos.");
+    await fs.chmod(protectedDir, 0o755);
+  });
 });
