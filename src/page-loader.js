@@ -41,8 +41,9 @@ export async function pageLoader(url, outputDir) {
 
     // Actualizar los enlaces en el HTML
     const updatedHtml = updateHtmlLinks(html, resourcesMap);
-    await fs.writeFile(htmlFilePath, updatedHtml);
-    console.log(`✅ Página guardada en: ${htmlFilePath}`);
+  await fs.writeFile(path.join(outputDir, 'codica-la-cursos.html'), updatedHtml, 'utf-8');
+
+
 
     return htmlFilePath;
   } catch (error) {

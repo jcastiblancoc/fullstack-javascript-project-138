@@ -1,31 +1,29 @@
-import { JSDOM } from 'jsdom';
-import { URL } from 'url';
-
 export function extractLocalResources(html, baseUrl) {
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
-    const base = new URL(baseUrl);
-    const resources = [];
+    const resourceUrls = [];
+    const regex = /<(?:img|script|link)\s+(?:[^>]*?)(?:src|href)="([^"]+)"/g;
+    let match;
 
-    document.querySelectorAll('link[rel="stylesheet"], script[src], img[src]').forEach((element) => {
-        const attr = element.tagName === 'LINK' ? 'href' : 'src';
-        const resourceUrl = element.getAttribute(attr);
-
-        if (resourceUrl && resourceUrl.startsWith('/') || resourceUrl.startsWith(base.origin)) {
-            const absoluteUrl = new URL(resourceUrl, base).href;
-            resources.push(absoluteUrl);
+    while ((match = regex.exec(html)) !== null) {
+        const url = match[1];
+        if (!url.startsWith('http')) {
+            // Convierte URL relativa a absoluta
+            const absoluteUrl = new URL(url, baseUrl).href;
+            resourceUrls.push(absoluteUrl);
         }
-    });
+    }
 
-    return resources;
+    return resourceUrls;
 }
 
 export function updateHtmlLinks(html, resourcesMap) {
     return html.replace(/(src|href)="([^"]+)"/g, (match, attr, url) => {
-        if (resourcesMap[url]) {
-            return `${attr}="${resourcesMap[url]}"`; // Reemplaza la URL original por la local
+        // Convertir URLs relativas en absolutas
+        const absoluteUrl = new URL(url, 'https://codica.la').href;
+
+        if (resourcesMap[absoluteUrl]) {
+            return `${attr}="${resourcesMap[absoluteUrl]}"`; // Reemplaza con el path local
         }
-        return match; // Mantiene las URLs externas sin cambios
+        return match; // Mantiene URLs externas sin cambios
     });
 }
 
