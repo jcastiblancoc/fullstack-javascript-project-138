@@ -1,9 +1,9 @@
 import path from 'path';
 
 const processName = (name, replacer = '-') => name
-    .replace(/[?&=]/g, '')
-    .match(/\w+/gi)
-    .join(replacer);
+.replace(/[?&=]/g, '')
+.match(/\w+/gi)
+.join(replacer);
 
 export const urlToFilename = (link, defaultFormat = '.html') => {
     const { dir, name, ext } = path.parse(link);
@@ -14,18 +14,18 @@ export const urlToFilename = (link, defaultFormat = '.html') => {
 };
 
 export const urlToDirname = (link, postfix = '_files') => {
-    const { dir, name, ext } = path.parse(link);
-    const slug = processName(path.join(dir, name, ext));
+const { dir, name, ext } = path.parse(link);
+const slug = processName(path.join(dir, name, ext));
 
-    return `${slug}${postfix}`;
+return `${slug}${postfix}`;
 };
 
 export const getExtension = (fileName) => path.extname(fileName);
 
 export const sanitizeOutputDir = (dir) => {
-    const restrictedPaths = ['/sys', '/etc', '/bin', '/usr', '/lib'];
-    if (restrictedPaths.includes(dir)) {
-        throw new Error(`No se puede usar el directorio restringido: ${dir}`);
-    }
+const restrictedPaths = ['/sys', '/etc', '/bin', '/usr', '/lib'];
+if (restrictedPaths.includes(dir)) {
+    throw new Error(`No se puede usar el directorio restringido: ${dir}`);
+}
     return dir;
 };
