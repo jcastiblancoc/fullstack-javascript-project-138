@@ -1,47 +1,69 @@
-import axios from 'axios';
 import fs from 'fs-extra';
 import path from 'path';
+import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { URL } from 'url';
 
-const downloadImages = async (html, url, outputDir) => {
-  const $ = cheerio.load(html);
-  const images = $('img');
-
-  await fs.ensureDir(outputDir);
-
-  const downloads = images.map(async (_, img) => {
-    const src = $(img).attr('src');
-    if (!src) return;
-
-    const imageUrl = new URL(src, url).href;
-    const imagePath = src.replace(/^\//, '').replace(/\//g, '-');
-    const localPath = path.join(outputDir, imagePath);
-
-    try {
-      const { data } = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-      await fs.writeFile(localPath, data);
-      $(img).attr('src', path.join(path.basename(outputDir), imagePath));
-    } catch (error) {
-      console.error(`Error descargando imagen ${imageUrl}:`, error.message);
-    }
-  }).get();
-
-  await Promise.all(downloads);
-  return $.html();
-};
-
-const saveHtmlWithImages = async (pageUrl, outputPath) => {
+const downloadFile = async (url, outputPath) => {
   try {
-    const { data: html } = await axios.get(pageUrl);
-    const outputDir = outputPath.replace('.html', '_files');
-
-    const modifiedHtml = await downloadImages(html, pageUrl, outputDir);
-    await fs.writeFile(outputPath, modifiedHtml, 'utf-8');
-
-    console.log(`Página guardada en: ${outputPath}`);
+    const { data } = await axios.get(url, { responseType: 'arraybuffer' });
+    await fs.outputFile(outputPath, data);
   } catch (error) {
-    console.error(`Error descargando la página ${pageUrl}:`, error.message);
+    console.error(`Error al descargar ${url}: ${error.message}`);
   }
 };
 
-export default saveHtmlWithImages;
+const downloadResources = async (html, baseUrl, outputDir) => {
+  const $ = cheerio.load(html);
+  const resources = [];
+
+  const processTag = (selector, attr) => {
+    $(selector).each((_, element) => {
+      const src = $(element).attr(attr);
+      if (!src) return;
+
+      const resourceUrl = new URL(src, baseUrl);
+      const isLocal = resourceUrl.hostname === new URL(baseUrl).hostname;
+
+      if (isLocal) {
+        const fileName = resourceUrl.pathname.replace(/\//g, '-').replace(/^-/, '');
+        const filePath = path.join(outputDir, fileName);
+
+        resources.push({ url: resourceUrl.href, filePath });
+
+        $(element).attr(attr, `${path.basename(outputDir)}/${fileName}`);
+      }
+    });
+  };
+
+  processTag('link[rel="stylesheet"]', 'href');
+  processTag('script', 'src');
+  processTag('img', 'src');
+
+  await fs.ensureDir(outputDir);
+  await Promise.all(resources.map(({ url, filePath }) => downloadFile(url, filePath)));
+
+  return $.html();
+};
+
+const pageLoader = async (url, outputDir) => {
+  try {
+    await fs.ensureDir(outputDir);
+
+    const parsedUrl = new URL(url);
+    const pageName = `${parsedUrl.hostname}${parsedUrl.pathname.replace(/\//g, '-')}`;
+    const pageDir = path.join(outputDir, `${pageName}_files`);
+    const outputFile = path.join(outputDir, `${pageName}.html`);
+
+    const { data: html } = await axios.get(url);
+
+    const modifiedHtml = await downloadResources(html, url, pageDir);
+    await fs.outputFile(outputFile, modifiedHtml);
+
+    console.log(`Página guardada en: ${outputFile}`);
+  } catch (error) {
+    console.error(`Error al descargar la página: ${error.message}`);
+  }
+};
+
+export default pageLoader;

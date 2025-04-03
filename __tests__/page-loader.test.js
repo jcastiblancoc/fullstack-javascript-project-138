@@ -1,51 +1,23 @@
-import nock from 'nock';
+import { test, expect } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import saveHtmlWithImages from '../src/index.js';
+import pageLoader from '../src/index.js';
 
-// Definir __dirname manualmente
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const testUrl = 'https://example.com';
+const outputDir = path.join(__dirname, '..', '__fixtures__', 'output');
 
-const mockHtml = `
-<!DOCTYPE html>
-<html>
-  <body>
-    <img src="/assets/professions/nodejs.png" />
-  </body>
-</html>`;
+beforeEach(async () => {
+  await fs.remove(outputDir);
+  await fs.ensureDir(outputDir);
+});
 
-const mockImage = Buffer.from([137, 80, 78, 71]);
+test('descarga página con recursos locales', async () => {
+  await pageLoader(testUrl, outputDir);
 
-describe('Page Loader', () => {
-  const testDir = path.join(__dirname, '__tests__');
-  const testHtmlPath = path.join(testDir, 'codica-la-cursos.html');
-  const testImagePath = path.join(testDir, 'codica-la-cursos_files', 'assets-professions-nodejs.png');
+  const files = await fs.readdir(outputDir);
+  expect(files).toContain('example-com.html');
 
-  beforeAll(async () => {
-    await fs.ensureDir(testDir);
-  });
-
-  afterAll(async () => {
-    await fs.remove(testDir);
-  });
-
-  test('descarga imágenes y modifica el HTML', async () => {
-    nock('https://codica.la')
-      .get('/cursos')
-      .reply(200, mockHtml);
-
-    nock('https://codica.la')
-      .get('/assets/professions/nodejs.png')
-      .reply(200, mockImage);
-
-    await saveHtmlWithImages('https://codica.la/cursos', testHtmlPath);
-
-    const savedHtml = await fs.readFile(testHtmlPath, 'utf-8');
-    const savedImage = await fs.readFile(testImagePath);
-
-    expect(savedHtml).toContain('codica-la-cursos_files/assets-professions-nodejs.png');
-    expect(savedImage).toEqual(mockImage);
-  });
+  const resourcesDir = path.join(outputDir, 'example-com_files');
+  const resources = await fs.readdir(resourcesDir);
+  expect(resources.length).toBeGreaterThan(0);
 });

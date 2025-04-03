@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20] # Probar en múltiples versiones
+        node-version: [20] # Puedes agregar más versiones si lo deseas
 
     steps:
     - uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
         cache: 'npm'
 
     - run: npm ci
-    - run: npm test
+    - run: npm test -- --coverage # Ejecutar pruebas con cobertura
 
   lint:
     runs-on: ubuntu-latest
@@ -31,4 +31,17 @@ jobs:
         cache: 'npm'
 
     - run: npm ci
-    - run: npm run lint
+    - run: npm run lint -- --format stylish # Formato detallado
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - run: npm ci
+    - run: npm run build # Si tienes un script de build en package.json
