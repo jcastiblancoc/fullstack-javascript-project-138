@@ -21,16 +21,11 @@ export function extractLocalResources(html, baseUrl) {
 }
 
 export function updateHtmlLinks(html, resourcesMap) {
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
-
-    document.querySelectorAll('link[rel="stylesheet"], script[src], img[src]').forEach((element) => {
-        const attr = element.tagName === 'LINK' ? 'href' : 'src';
-        const resourceUrl = element.getAttribute(attr);
-        if (resourcesMap[resourceUrl]) {
-            element.setAttribute(attr, resourcesMap[resourceUrl]);
+    return html.replace(/(src|href)="([^"]+)"/g, (match, attr, url) => {
+        if (resourcesMap[url]) {
+            return `${attr}="${resourcesMap[url]}"`; // Reemplaza la URL original por la local
         }
+        return match; // Mantiene las URLs externas sin cambios
     });
-
-    return dom.serialize();
 }
+
