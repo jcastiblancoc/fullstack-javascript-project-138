@@ -2,6 +2,11 @@ import { pageLoader } from '../src/page-loader.js';
 import fs from 'fs/promises';
 import path from 'path';
 import nock from 'nock';
+import debug from 'debug';
+
+const testLog = debug('page-loader:test');
+testLog('🧪 Iniciando pruebas de page-loader');
+
 
 const outputDir = path.join(process.cwd(), 'test-output');
 const testUrl = 'https://codica.la/cursos';
