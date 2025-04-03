@@ -5,6 +5,7 @@ import { URL } from "url";
 import debug from "debug";
 import { extractLocalResources, updateHtmlLinks } from "./htmlProcessor.js";
 import { downloadResource } from "./downloader.js";
+import Listr from "listr";
 
 // Configuración del logger
 const log = debug("page-loader");
@@ -71,29 +72,37 @@ export async function pageLoader(url, outputDir) {
     const resources = extractLocalResources(response.data, url);
     log(`📦 Recursos encontrados: ${resources.length}`);
 
-    // Descargar todos los recursos en paralelo
-    const downloads = await Promise.allSettled(
-      resources.map((resourceUrl) =>
-        downloadResource(resourceUrl, resourcesDir),
-      ),
+    // Crear contexto para almacenar resultados
+    const ctx = { downloadedResources: [] };
+
+    // Crear tareas con Listr para mostrar el progreso
+    const tasks = new Listr(
+      resources.map((resourceUrl) => ({
+        title: `Descargando ${resourceUrl}`,
+        task: async (_, task) => {
+          try {
+            const result = await downloadResource(resourceUrl, resourcesDir);
+            ctx.downloadedResources.push(result); // Guardar resultado en el contexto
+            task.title = `✅ Descargado: ${resourceUrl}`;
+          } catch (error) {
+            task.title = `❌ Error al descargar: ${resourceUrl}`;
+            throw error;
+          }
+        },
+      })),
+      { concurrent: true, exitOnError: false } // Descargas en paralelo, pero no detiene todo si falla una
     );
+
+    // Ejecutar las tareas
+    await tasks.run();
 
     // Crear mapa de recursos descargados
     const resourcesMap = Object.fromEntries(
-      downloads
-        .filter((res) => res.status === "fulfilled")
-        .map(({ value }) => [
-          value.originalUrl,
-          path.relative(outputDir, value.localPath),
-        ]),
+      ctx.downloadedResources.map(({ originalUrl, localPath }) => [
+        originalUrl,
+        path.relative(outputDir, localPath),
+      ])
     );
-
-    // Loggear errores de descarga de recursos
-    downloads
-      .filter((res) => res.status === "rejected")
-      .forEach(({ reason }) =>
-        errorLog(`❌ Error descargando recurso: ${reason.message}`),
-      );
 
     // Actualizar HTML con las rutas locales
     log("🔗 Actualizando enlaces en el HTML...");

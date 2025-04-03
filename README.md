@@ -25,3 +25,7 @@
 ### Asciinema Paso 5
 
 [![asciicast](https://asciinema.org/a/Kjqv7Uspl2DjrQYvfMRw0H10F.svg)](https://asciinema.org/a/Kjqv7Uspl2DjrQYvfMRw0H10F)
+
+### Asciinema Paso 6
+
+[![asciicast](https://asciinema.org/a/cqSvH0CZBsxImnWEHcYPv7jc2.svg)](https://asciinema.org/a/cqSvH0CZBsxImnWEHcYPv7jc2)
