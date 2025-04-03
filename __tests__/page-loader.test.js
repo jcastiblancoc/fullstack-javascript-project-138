@@ -1,4 +1,4 @@
-import { pageLoader } from "../src/page-loader.js";
+import { pageLoader } from "../src/pageLoader.js";
 import fs from "fs/promises";
 import path from "path";
 import nock from "nock";
