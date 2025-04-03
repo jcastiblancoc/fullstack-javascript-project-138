@@ -8,7 +8,7 @@ import { downloadResource } from './downloader.js';
 export async function pageLoader(url, outputDir) {
   try {
     const urlObj = new URL(url);
-    const pageName = `${urlObj.hostname}${urlObj.pathname.replace(/\W/g, '-')}`.replace(/-$/, ''); // Evita guiones finales
+    const pageName = `${urlObj.hostname.replace(/\./g, '-')}${urlObj.pathname.replace(/\W/g, '-')}`.replace(/-$/, '');
     const resourcesDir = path.join(outputDir, `${pageName}_files`);
     const htmlFilePath = path.join(outputDir, `${pageName}.html`);
 
